@@ -10,6 +10,8 @@ from bot.app import create_bot, create_dispatcher
 from bot.config import BotSettings
 from bot.menu_data import MENU_DATA
 from shared.admin_store import admin_store
+from shared.delivery_adapters import build_delivery_adapters
+from shared.notification_outbox import notification_outbox
 from shared.queue_factory import build_queue_store
 from shared.queue_processor import process_next_job
 
@@ -22,6 +24,7 @@ queue_store = build_queue_store(
     redis_url=settings.redis_url,
     redis_prefix=settings.queue_redis_prefix,
 )
+delivery_adapters = build_delivery_adapters()
 
 
 @app.get("/health")
@@ -197,11 +200,23 @@ async def queue_jobs(status: str | None = None) -> dict:
 
 @app.post("/queue/process-next")
 async def queue_process_next() -> dict:
-    processed, job = process_next_job(queue_store)
+    processed, job = process_next_job(
+        queue_store,
+        outbox=notification_outbox,
+        delivery_adapters=delivery_adapters,
+    )
     if not processed or not job:
         return {"ok": True, "processed": False}
     status = next(item.status for item in queue_store.list_jobs() if item.job_id == job.job_id)
     return {"ok": True, "processed": True, "job_id": job.job_id, "status": status}
+
+
+@app.get("/queue/outbox")
+async def queue_outbox() -> dict:
+    return {
+        "ok": True,
+        "records": [record.__dict__ for record in notification_outbox.list_records()],
+    }
 
 
 @app.post("/telegram/webhook/{secret}")

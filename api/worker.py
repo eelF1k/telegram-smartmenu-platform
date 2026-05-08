@@ -2,6 +2,8 @@ import asyncio
 import logging
 
 from bot.config import BotSettings
+from shared.delivery_adapters import build_delivery_adapters
+from shared.notification_outbox import notification_outbox
 from shared.queue_factory import build_queue_store
 from shared.queue_processor import process_next_job
 
@@ -12,11 +14,16 @@ queue_store = build_queue_store(
     redis_url=settings.redis_url,
     redis_prefix=settings.queue_redis_prefix,
 )
+delivery_adapters = build_delivery_adapters()
 
 
 async def run_worker(poll_interval_seconds: float = 1.0) -> None:
     while True:
-        processed, job = process_next_job(queue_store)
+        processed, job = process_next_job(
+            queue_store,
+            outbox=notification_outbox,
+            delivery_adapters=delivery_adapters,
+        )
         if not processed or not job:
             await asyncio.sleep(poll_interval_seconds)
             continue
