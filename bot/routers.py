@@ -291,9 +291,7 @@ async def successful_payment_handler(message: Message) -> None:
 @router.message(Command("admin"))
 async def admin_handler(message: Message) -> None:
     await message.answer(
-        "Admin panel:\n"
-        "/bookings_admin - список бронювань\n"
-        "/orders_admin - список замовлень"
+        "Admin panel:\n/bookings_admin - список бронювань\n/orders_admin - список замовлень"
     )
 
 
