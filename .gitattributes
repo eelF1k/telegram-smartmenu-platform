@@ -1,0 +1,8 @@
+*.md linguist-detectable=false
+*.yml linguist-detectable=false
+*.yaml linguist-detectable=false
+*.json linguist-detectable=false
+*.toml linguist-detectable=false
+*.tsx linguist-detectable=true
+*.ts linguist-detectable=true
+*.py linguist-detectable=true
