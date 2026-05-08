@@ -155,3 +155,26 @@ async def test_queue_rate_limit_creates_throttled_status() -> None:
     assert second.status_code == 200
     assert first.json()["status"] in {"done", "pending"}
     assert second.json()["status"] in {"pending", "dead_letter"}
+
+
+async def test_queue_venue_override_changes_channel() -> None:
+    if hasattr(queue_store, "reset"):
+        queue_store.reset()
+    if hasattr(outbox_store, "reset"):
+        outbox_store.reset()
+    policy_engine._events.clear()
+    policy_engine.set_venue_override("venue-test", channel="email", priority="low")
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        await client.post(
+            "/queue/enqueue",
+            json={
+                "kind": "notify_order_created",
+                "payload": {"user_id": 33, "venue_id": "venue-test"},
+            },
+        )
+        await client.post("/queue/process-next")
+        outbox = await client.get("/queue/outbox")
+
+    assert outbox.status_code == 200
+    assert any(record["channel"] == "email" for record in outbox.json()["records"])

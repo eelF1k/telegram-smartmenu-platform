@@ -34,3 +34,22 @@ def test_policy_rate_limit_blocks_second_event() -> None:
     assert first.allowed is True
     assert second.allowed is False
     assert second.reason == "rate_limited"
+
+
+def test_policy_venue_override_channel_and_priority() -> None:
+    engine = DeliveryPolicyEngine(rate_limit_per_minute=10)
+    engine.set_venue_override("venue-1", channel="email", priority="low")
+    job = make_job("notify_order_created", {"venue_id": "venue-1", "priority": "high"})
+    decision = engine.evaluate(job)
+    assert decision.channel == "email"
+    assert decision.priority == "low"
+
+
+def test_policy_tenant_specific_rate_limit() -> None:
+    engine = DeliveryPolicyEngine(rate_limit_per_minute=10)
+    engine.set_tenant_rate_limit("tenant-a", 1)
+    job = make_job("notify_order_status", {"tenant_id": "tenant-a"})
+    first = engine.evaluate(job)
+    second = engine.evaluate(job)
+    assert first.allowed is True
+    assert second.allowed is False
