@@ -1,3 +1,4 @@
+from shared.delivery_policy import DeliveryPolicyEngine
 from shared.observability import now_perf, observe_delivery, observe_queue
 from shared.outbox_store import AsyncOutboxStoreProtocol
 from shared.queue_jobs import QueueJob
@@ -35,6 +36,7 @@ async def process_next_job(
     *,
     outbox: AsyncOutboxStoreProtocol | None = None,
     delivery_adapters: dict | None = None,
+    policy_engine: DeliveryPolicyEngine | None = None,
 ) -> tuple[bool, QueueJob | None]:
     started = now_perf()
     job = queue.claim_next()
@@ -52,7 +54,12 @@ async def process_next_job(
             queue.complete(job.job_id)
             observe_queue(job.kind, "done", now_perf() - started)
             return True, job
-        channel = _pick_channel(job)
+        decision = policy_engine.evaluate(job) if policy_engine else None
+        if decision and not decision.allowed:
+            queue.fail(job.job_id)
+            observe_queue(job.kind, "throttled", now_perf() - started)
+            return True, job
+        channel = decision.channel if decision else _pick_channel(job)
         adapter = delivery_adapters.get(channel)
         delivery_started = now_perf()
         delivered = bool(adapter and await adapter.send(job.payload))
