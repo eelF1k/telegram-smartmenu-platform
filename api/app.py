@@ -11,7 +11,7 @@ from bot.config import BotSettings
 from bot.menu_data import MENU_DATA
 from shared.admin_store import admin_store
 from shared.delivery_adapters import build_delivery_adapters
-from shared.notification_outbox import notification_outbox
+from shared.outbox_store import outbox_store
 from shared.queue_factory import build_queue_store
 from shared.queue_processor import process_next_job
 
@@ -200,9 +200,9 @@ async def queue_jobs(status: str | None = None) -> dict:
 
 @app.post("/queue/process-next")
 async def queue_process_next() -> dict:
-    processed, job = process_next_job(
+    processed, job = await process_next_job(
         queue_store,
-        outbox=notification_outbox,
+        outbox=outbox_store,
         delivery_adapters=delivery_adapters,
     )
     if not processed or not job:
@@ -213,9 +213,10 @@ async def queue_process_next() -> dict:
 
 @app.get("/queue/outbox")
 async def queue_outbox() -> dict:
+    records = await outbox_store.list_records()
     return {
         "ok": True,
-        "records": [record.__dict__ for record in notification_outbox.list_records()],
+        "records": [record.__dict__ for record in records],
     }
 
 

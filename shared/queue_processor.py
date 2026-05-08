@@ -1,4 +1,4 @@
-from shared.notification_outbox import InMemoryNotificationOutbox
+from shared.outbox_store import AsyncOutboxStoreProtocol
 from shared.queue_jobs import QueueJob
 from shared.queue_protocol import QueueStoreProtocol
 
@@ -29,10 +29,10 @@ def _pick_channel(job: QueueJob) -> str:
     return "telegram"
 
 
-def process_next_job(
+async def process_next_job(
     queue: QueueStoreProtocol,
     *,
-    outbox: InMemoryNotificationOutbox | None = None,
+    outbox: AsyncOutboxStoreProtocol | None = None,
     delivery_adapters: dict | None = None,
 ) -> tuple[bool, QueueJob | None]:
     job = queue.claim_next()
@@ -45,13 +45,13 @@ def process_next_job(
 
     if outbox and delivery_adapters:
         dedupe_key = _dedupe_key(job)
-        if outbox.exists(dedupe_key):
+        if await outbox.exists(dedupe_key):
             queue.complete(job.job_id)
             return True, job
         channel = _pick_channel(job)
         adapter = delivery_adapters.get(channel)
-        delivered = bool(adapter and adapter.send(job.payload))
-        outbox.save(
+        delivered = bool(adapter and await adapter.send(job.payload))
+        await outbox.save(
             dedupe_key=dedupe_key,
             channel=channel,
             payload=job.payload,
