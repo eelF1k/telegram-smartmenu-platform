@@ -3,7 +3,10 @@ import asyncio
 from aiogram.types import Update
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import Response, StreamingResponse
+from sqlalchemy import select
 
+from api.db import SessionFactory
+from api.models import DeliveryPolicyRule
 from api.recommendations import build_recommendation_text, recommend_dishes
 from api.uow import uow_context
 from bot.app import create_bot, create_dispatcher
@@ -30,6 +33,52 @@ queue_store = build_queue_store(
 )
 delivery_adapters = build_delivery_adapters()
 policy_engine = DeliveryPolicyEngine(rate_limit_per_minute=settings.delivery_rate_limit_per_minute)
+policy_rules_fallback: list[dict] = []
+
+
+async def reload_policy_rules() -> None:
+    policy_engine.clear_rules()
+    try:
+        async with SessionFactory() as session:
+            result = await session.execute(select(DeliveryPolicyRule))
+            rows = result.scalars().all()
+            for row in rows:
+                if row.scope == "tenant" and row.rate_limit_per_minute:
+                    policy_engine.set_tenant_rate_limit(
+                        tenant_id=row.scope_key,
+                        limit_per_minute=row.rate_limit_per_minute,
+                    )
+                if row.scope == "venue":
+                    policy_engine.set_venue_override(
+                        row.scope_key,
+                        channel=row.channel,
+                        priority=row.priority,
+                    )
+            return
+    except Exception:
+        pass
+
+    for row in policy_rules_fallback:
+        if row["scope"] == "tenant" and row.get("rate_limit_per_minute"):
+            policy_engine.set_tenant_rate_limit(
+                tenant_id=row["scope_key"],
+                limit_per_minute=int(row["rate_limit_per_minute"]),
+            )
+        if row["scope"] == "venue":
+            policy_engine.set_venue_override(
+                row["scope_key"],
+                channel=row.get("channel"),
+                priority=row.get("priority"),
+            )
+
+
+@app.on_event("startup")
+async def startup_policy_reload() -> None:
+    try:
+        await reload_policy_rules()
+    except Exception:
+        # Keep API bootable when DB is unavailable in demo mode.
+        pass
 
 
 @app.get("/health")
@@ -160,6 +209,77 @@ async def admin_update_reservation_status(reservation_id: int, payload: dict) ->
 @app.get("/admin/orders")
 async def admin_orders() -> dict:
     return {"ok": True, "orders": [o.__dict__ for o in admin_store.list_orders()]}
+
+
+@app.get("/admin/policy-rules")
+async def admin_policy_rules() -> dict:
+    try:
+        async with SessionFactory() as session:
+            result = await session.execute(select(DeliveryPolicyRule))
+            rules = result.scalars().all()
+        return {
+            "ok": True,
+            "rules": [
+                {
+                    "id": row.id,
+                    "scope": row.scope,
+                    "scope_key": row.scope_key,
+                    "channel": row.channel,
+                    "priority": row.priority,
+                    "rate_limit_per_minute": row.rate_limit_per_minute,
+                }
+                for row in rules
+            ],
+        }
+    except Exception:
+        return {"ok": True, "rules": policy_rules_fallback}
+
+
+@app.post("/admin/policy-rules")
+async def admin_upsert_policy_rule(payload: dict) -> dict:
+    scope = str(payload.get("scope", "")).strip()
+    scope_key = str(payload.get("scope_key", "")).strip()
+    if scope not in {"tenant", "venue"}:
+        raise HTTPException(status_code=400, detail="invalid_scope")
+    if not scope_key:
+        raise HTTPException(status_code=400, detail="scope_key_required")
+    try:
+        async with SessionFactory() as session:
+            result = await session.execute(
+                select(DeliveryPolicyRule).where(
+                    DeliveryPolicyRule.scope == scope,
+                    DeliveryPolicyRule.scope_key == scope_key,
+                )
+            )
+            row = result.scalar_one_or_none()
+            if not row:
+                row = DeliveryPolicyRule(scope=scope, scope_key=scope_key)
+                session.add(row)
+            row.channel = payload.get("channel")
+            row.priority = payload.get("priority")
+            row.rate_limit_per_minute = payload.get("rate_limit_per_minute")
+            await session.commit()
+    except Exception:
+        updated = False
+        for row in policy_rules_fallback:
+            if row["scope"] == scope and row["scope_key"] == scope_key:
+                row["channel"] = payload.get("channel")
+                row["priority"] = payload.get("priority")
+                row["rate_limit_per_minute"] = payload.get("rate_limit_per_minute")
+                updated = True
+                break
+        if not updated:
+            policy_rules_fallback.append(
+                {
+                    "scope": scope,
+                    "scope_key": scope_key,
+                    "channel": payload.get("channel"),
+                    "priority": payload.get("priority"),
+                    "rate_limit_per_minute": payload.get("rate_limit_per_minute"),
+                }
+            )
+    await reload_policy_rules()
+    return {"ok": True}
 
 
 @app.post("/admin/orders/{order_id}/status")

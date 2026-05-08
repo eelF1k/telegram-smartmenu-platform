@@ -23,6 +23,10 @@ class DeliveryPolicyEngine:
     def set_tenant_rate_limit(self, tenant_id: str, limit_per_minute: int) -> None:
         self._tenant_rates[tenant_id] = max(1, limit_per_minute)
 
+    def clear_rules(self) -> None:
+        self._tenant_rates = {}
+        self._venue_overrides = {}
+
     def set_venue_override(
         self,
         venue_id: str,
