@@ -4,7 +4,12 @@ from aiogram.fsm.storage.redis import RedisStorage
 from redis.asyncio import Redis
 
 from bot.config import BotSettings
-from bot.middlewares import BanCheckMiddleware, LoggingMiddleware, ThrottlingMiddleware
+from bot.middlewares import (
+    BanCheckMiddleware,
+    LocalizationMiddleware,
+    LoggingMiddleware,
+    ThrottlingMiddleware,
+)
 from bot.routers import router
 
 
@@ -15,9 +20,16 @@ def create_bot(settings: BotSettings) -> Bot:
 def create_dispatcher(settings: BotSettings) -> Dispatcher:
     storage = _create_storage(settings)
     dp = Dispatcher(storage=storage)
+    dp.message.middleware(LocalizationMiddleware(default_locale=settings.default_locale))
     dp.message.middleware(LoggingMiddleware())
-    dp.message.middleware(ThrottlingMiddleware(limit_per_minute=settings.throttle_per_minute))
-    dp.message.middleware(BanCheckMiddleware())
+    dp.message.middleware(
+        ThrottlingMiddleware(
+            limit_per_minute=settings.throttle_per_minute,
+            default_locale=settings.default_locale,
+        )
+    )
+    dp.message.middleware(BanCheckMiddleware(default_locale=settings.default_locale))
+    dp.callback_query.middleware(LocalizationMiddleware(default_locale=settings.default_locale))
     dp.include_router(router)
     return dp
 

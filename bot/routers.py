@@ -23,70 +23,57 @@ settings = BotSettings()
 
 
 @router.message(Command("start"))
-async def start_handler(message: Message, state: FSMContext) -> None:
+async def start_handler(message: Message, state: FSMContext, t) -> None:
     await state.clear()
     referral_payload = parse_start_referral(message.text)
     referral_text = ""
     if referral_payload and message.from_user:
         registered = referrals.register_referral(message.from_user.id, referral_payload)
         if registered:
-            referral_text = "\nРеферальний код застосовано. Ви отримали welcome бонус."
-    await message.answer(
-        "Вітаю у SmartMenu.\n"
-        "Команди: /menu /profile /reserve /support /referral /help /pricing /buy" + referral_text
-    )
+            referral_text = t("referral_applied")
+    await message.answer(t("welcome") + referral_text)
 
 
 @router.message(Command("help"))
-async def help_handler(message: Message) -> None:
-    await message.answer(
-        "Доступно:\n"
-        "/menu - відкрити меню\n"
-        "/profile - профіль\n"
-        "/reserve - бронювання столу\n"
-        "/support - підтримка\n"
-        "/referral - реферальне посилання"
-    )
+async def help_handler(message: Message, t) -> None:
+    await message.answer(t("help"))
 
 
 @router.message(Command("menu"))
-async def menu_handler(message: Message, state: FSMContext) -> None:
+async def menu_handler(message: Message, state: FSMContext, t) -> None:
     await state.clear()
     await state.set_state(OrderFlow.venue)
-    await message.answer("Оберіть заклад:", reply_markup=venues_keyboard(MENU_DATA))
+    await message.answer(t("choose_venue"), reply_markup=venues_keyboard(MENU_DATA))
 
 
 @router.message(Command("profile"))
-async def profile_handler(message: Message) -> None:
+async def profile_handler(message: Message, t) -> None:
     user = message.from_user
     if not user:
-        await message.answer("Профіль недоступний.")
+        await message.answer(t("profile_unavailable"))
         return
-    await message.answer(f"Профіль: id={user.id}, username=@{user.username or 'unknown'}")
+    await message.answer(t("profile_text", user_id=user.id, username=user.username or "unknown"))
 
 
 @router.message(Command("reserve"))
-async def reserve_handler(message: Message, state: FSMContext) -> None:
+async def reserve_handler(message: Message, state: FSMContext, t) -> None:
     await state.set_state(ReserveFlow.venue)
-    await message.answer("Бронювання: оберіть заклад (введіть назву).")
+    await message.answer(t("reserve_prompt"))
 
 
 @router.message(Command("support"))
-async def support_handler(message: Message) -> None:
-    await message.answer("Підтримка: support@smartmenu.local")
+async def support_handler(message: Message, t) -> None:
+    await message.answer(t("support_text"))
 
 
 @router.message(Command("referral"))
-async def referral_handler(message: Message) -> None:
+async def referral_handler(message: Message, t) -> None:
     user = message.from_user
     if not user:
-        await message.answer("Не вдалося згенерувати реферальне посилання.")
+        await message.answer(t("referral_unavailable"))
         return
     stats = referrals.stats(user.id)
-    await message.answer(
-        f"Ваше реферальне посилання: https://t.me/SmartMenuBot?start=ref{user.id}\n"
-        f"Запрошено друзів: {stats.invitee_count}"
-    )
+    await message.answer(t("referral_text", user_id=user.id, invitee_count=stats.invitee_count))
 
 
 @router.message(Command("pricing"))
@@ -121,9 +108,9 @@ async def buy_handler(message: Message, bot: Bot) -> None:
 
 
 @router.message(Command("cancel"))
-async def cancel_handler(message: Message, state: FSMContext) -> None:
+async def cancel_handler(message: Message, state: FSMContext, t) -> None:
     await state.clear()
-    await message.answer("Поточну дію скасовано.")
+    await message.answer(t("cancelled"))
 
 
 @router.message(ReserveFlow.venue, F.text)

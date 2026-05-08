@@ -69,6 +69,14 @@ SmartMenu is a multi-module Telegram-first platform for restaurant digital menus
 - WebApp `AI` screen with query input, recommendation list, and live SSE log
 - API tests extended for recommendation and streaming endpoints
 
+## Phase 8 (i18n ua/en + Localization Middleware)
+
+- Added `bot/i18n.py` with translation catalog (`uk`, `en`) and locale detection
+- Added `LocalizationMiddleware` to inject `locale` and `t()` translator into handlers
+- Localized key command responses (`/start`, `/help`, `/menu`, `/profile`, `/reserve`, `/support`, `/referral`, `/cancel`)
+- Localized middleware replies for throttling and banned users
+- Added tests for locale detection and message translation
+
 ## Repository Structure
 
 ```text
@@ -107,4 +115,4 @@ alembic upgrade head
 
 ## Next Steps
 
-- Phase 8: i18n (ua/en) + improved middleware localization
+- Phase 9: queue workers + async notification jobs (ARQ/Celery-ready layer)
