@@ -32,8 +32,7 @@ async def start_handler(message: Message, state: FSMContext) -> None:
             referral_text = "\nРеферальний код застосовано. Ви отримали welcome бонус."
     await message.answer(
         "Вітаю у SmartMenu.\n"
-        "Команди: /menu /profile /reserve /support /referral /help /pricing /buy"
-        + referral_text
+        "Команди: /menu /profile /reserve /support /referral /help /pricing /buy" + referral_text
     )
 
 
