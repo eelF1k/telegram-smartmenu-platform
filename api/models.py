@@ -78,3 +78,15 @@ class NotificationOutbox(Base):
     payload_json: Mapped[str] = mapped_column(Text)
     delivered: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class DeliveryPolicyRule(Base):
+    __tablename__ = "delivery_policy_rules"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    scope: Mapped[str] = mapped_column(String(16))  # tenant | venue
+    scope_key: Mapped[str] = mapped_column(String(128), index=True)
+    channel: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    priority: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    rate_limit_per_minute: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
