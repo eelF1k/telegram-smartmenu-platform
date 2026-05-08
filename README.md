@@ -114,6 +114,21 @@ SmartMenu is a multi-module Telegram-first platform for restaurant digital menus
   - `QUEUE_BACKEND=memory|redis`
   - `QUEUE_REDIS_PREFIX=smartmenu:queue`
 
+## Phase 12 (Delivery Adapters + Idempotent Notification Outbox)
+
+- Added delivery adapter registry `shared/delivery_adapters.py`:
+  - Telegram adapter
+  - Email adapter
+  - Webhook adapter
+- Added idempotent notification outbox `shared/notification_outbox.py` with dedupe keys
+- Extended queue processing to:
+  - route supported notification jobs by channel
+  - avoid duplicate delivery by checking outbox dedupe key
+  - persist delivery records in outbox
+- Integrated outbox + adapters in API processing endpoint and background worker
+- Added `GET /queue/outbox` endpoint for monitoring delivered notification records
+- Added tests for adapter registry and idempotent duplicate processing
+
 ## Repository Structure
 
 ```text
@@ -152,4 +167,4 @@ alembic upgrade head
 
 ## Next Steps
 
-- Phase 12: delivery adapters (Telegram/email/webhook) + idempotent notification outbox
+- Phase 13: persistent DB outbox + real transport integrations (SMTP/HTTP/Telegram API)

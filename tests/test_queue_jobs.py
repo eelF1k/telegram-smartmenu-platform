@@ -1,11 +1,13 @@
 from httpx import ASGITransport, AsyncClient
 
 from api.app import app, queue_store
+from shared.notification_outbox import notification_outbox
 
 
 async def test_queue_enqueue_list_and_process() -> None:
     if hasattr(queue_store, "reset"):
         queue_store.reset()
+    notification_outbox.reset()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         enqueue_response = await client.post(
@@ -27,6 +29,7 @@ async def test_queue_enqueue_list_and_process() -> None:
 async def test_order_status_update_enqueues_notification_job() -> None:
     if hasattr(queue_store, "reset"):
         queue_store.reset()
+    notification_outbox.reset()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         await client.post("/webapp/confirm", json={"user_id": 7, "total": 15000})
@@ -47,6 +50,7 @@ async def test_order_status_update_enqueues_notification_job() -> None:
 async def test_queue_retry_and_dead_letter_flow() -> None:
     if hasattr(queue_store, "reset"):
         queue_store.reset()
+    notification_outbox.reset()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         enqueue_response = await client.post(
@@ -72,3 +76,29 @@ async def test_queue_retry_and_dead_letter_flow() -> None:
     assert second_process.json()["status"] == "dead_letter"
     assert dead_letter.status_code == 200
     assert any(job["kind"] == "unknown_kind" for job in dead_letter.json()["jobs"])
+
+
+async def test_notification_outbox_is_idempotent_on_duplicate_processing() -> None:
+    if hasattr(queue_store, "reset"):
+        queue_store.reset()
+    notification_outbox.reset()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        await client.post(
+            "/queue/enqueue",
+            json={"kind": "notify_order_status", "payload": {"order_id": 555, "user_id": 1}},
+        )
+        await client.post(
+            "/queue/enqueue",
+            json={"kind": "notify_order_status", "payload": {"order_id": 555, "user_id": 1}},
+        )
+        first = await client.post("/queue/process-next")
+        second = await client.post("/queue/process-next")
+        outbox = await client.get("/queue/outbox")
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["status"] == "done"
+    assert second.json()["status"] == "done"
+    assert outbox.status_code == 200
+    assert len(outbox.json()["records"]) == 1
