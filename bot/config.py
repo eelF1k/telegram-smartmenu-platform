@@ -8,5 +8,6 @@ class BotSettings(BaseSettings):
     bot_mode: str = "polling"
     webhook_secret: str = "dev-webhook-secret"
     redis_url: str = "redis://localhost:6379/0"
+    database_url: str = "postgresql+asyncpg://smartmenu:smartmenu@localhost:5432/smartmenu"
     throttle_per_minute: int = 30
     default_locale: str = "uk"

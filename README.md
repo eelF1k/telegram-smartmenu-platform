@@ -34,6 +34,14 @@ SmartMenu is a multi-module Telegram-first platform for restaurant digital menus
 - Cart persistence in localStorage
 - API integration: `/webapp/menu`, `/webapp/profile/{user_id}`, `/webapp/confirm`
 
+## Phase 4 (DB + UoW Foundation)
+
+- SQLAlchemy 2.0 async models: `users`, `venues`, `categories`, `dishes`, `orders`
+- Alembic scaffold with initial migration (`0001_initial_schema`)
+- Async session factory and Unit of Work abstraction
+- Repository layer (`UserRepository`, `VenueRepository`)
+- `/webapp/profile/{user_id}` now uses repository/UoW (with local fallback when DB is offline)
+
 ## Repository Structure
 
 ```text
@@ -58,6 +66,13 @@ python -m bot.main
 cd webapp && npm install && npm run dev
 ```
 
+### Database Bootstrap
+
+```bash
+docker compose up -d postgres redis
+alembic upgrade head
+```
+
 ### Bot Runtime Modes
 
 - `BOT_MODE=polling` -> `python -m bot.main` starts polling.
@@ -65,5 +80,5 @@ cd webapp && npm install && npm run dev
 
 ## Next Steps
 
-- Phase 3: Telegram WebApp (React + TWA SDK)
-- Phase 4: database layer, repositories, migrations
+- Phase 5: payments + referral deep-links + pre_checkout flow
+- Phase 6: admin tooling + reservations dashboard
