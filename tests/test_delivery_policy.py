@@ -53,3 +53,12 @@ def test_policy_tenant_specific_rate_limit() -> None:
     second = engine.evaluate(job)
     assert first.allowed is True
     assert second.allowed is False
+
+
+def test_policy_simulation_does_not_consume_rate_bucket() -> None:
+    engine = DeliveryPolicyEngine(rate_limit_per_minute=1)
+    job = make_job("notify_order_status", {"tenant_id": "tenant-sim"})
+    simulated = engine.simulate(job)
+    evaluated = engine.evaluate(job)
+    assert simulated.allowed is True
+    assert evaluated.allowed is True

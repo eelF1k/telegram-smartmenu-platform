@@ -201,6 +201,20 @@ SmartMenu is a multi-module Telegram-first platform for restaurant digital menus
 - Added safe fallback mode for local/demo when DB is unavailable
 - Added test coverage for policy-rule upsert/list flow via admin API
 
+## Phase 19 (Policy Simulation + Dry-run Inspector)
+
+- Added `simulate()` mode in policy engine (no rate-bucket consumption)
+- Added admin simulation endpoint:
+  - `POST /admin/policy-simulate`
+- Simulation response now returns structured decision inspector:
+  - `channel`
+  - `priority`
+  - `allowed`
+  - `reason`
+- Added tests for:
+  - simulation endpoint behavior
+  - non-mutating simulation mode in policy engine
+
 ## Repository Structure
 
 ```text
@@ -239,4 +253,4 @@ alembic upgrade head
 
 ## Next Steps
 
-- Phase 19: policy simulation endpoint + dry-run decision inspector
+- Phase 20: final hardening pass + polished README and portfolio narrative

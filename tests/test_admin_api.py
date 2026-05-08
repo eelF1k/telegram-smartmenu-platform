@@ -54,3 +54,20 @@ async def test_admin_policy_rules_upsert_and_list() -> None:
         row["scope"] == "tenant" and row["scope_key"] == "tenant-test"
         for row in list_response.json()["rules"]
     )
+
+
+async def test_admin_policy_simulation_endpoint() -> None:
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/admin/policy-simulate",
+            json={
+                "kind": "notify_order_status",
+                "payload": {"tenant_id": "tenant-test", "priority": "high"},
+            },
+        )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["ok"] is True
+    assert data["decision"]["channel"] == "telegram"
+    assert data["decision"]["priority"] == "high"
