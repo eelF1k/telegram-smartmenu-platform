@@ -1,6 +1,10 @@
+import asyncio
+
 from aiogram.types import Update
 from fastapi import FastAPI, Header, HTTPException
+from fastapi.responses import StreamingResponse
 
+from api.recommendations import build_recommendation_text, recommend_dishes
 from api.uow import uow_context
 from bot.app import create_bot, create_dispatcher
 from bot.config import BotSettings
@@ -67,6 +71,41 @@ async def webapp_confirm(payload: dict) -> dict:
     total = int(payload.get("total", 0))
     admin_store.create_order(user_id=user_id, total=total)
     return {"ok": True, "received": payload}
+
+
+@app.get("/webapp/recommendations-stream")
+async def webapp_recommendations_stream(user_id: int, q: str = "") -> StreamingResponse:
+    async def event_stream():
+        text = build_recommendation_text(user_query=q or "щось смачне")
+        for chunk in text.split("\n"):
+            await asyncio.sleep(0.05)
+            yield f"data: {chunk}\n\n"
+        yield "event: done\ndata: [DONE]\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+@app.get("/webapp/recommendations/{user_id}")
+async def webapp_recommendations(user_id: int, q: str = "") -> dict:
+    # user_id reserved for future personalized ranking by order history
+    _ = user_id
+    items = recommend_dishes(user_query=q or "популярне", limit=5)
+    return {
+        "ok": True,
+        "items": [
+            {
+                "venue_id": item.venue_id,
+                "venue_name": item.venue_name,
+                "category_id": item.category_id,
+                "category_name": item.category_name,
+                "dish_id": item.dish_id,
+                "dish_name": item.dish_name,
+                "price": item.price,
+                "score": item.score,
+            }
+            for item in items
+        ],
+    }
 
 
 @app.get("/admin/reservations")

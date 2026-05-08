@@ -61,6 +61,14 @@ SmartMenu is a multi-module Telegram-first platform for restaurant digital menus
   - `POST /admin/orders/{id}/status`
 - WebApp Admin screen with reservation/order status actions
 
+## Phase 7 (AI Recommendations + SSE)
+
+- Lightweight recommendation engine in `api/recommendations.py`
+- Endpoint `GET /webapp/recommendations/{user_id}?q=...` for ranked dish suggestions
+- SSE endpoint `GET /webapp/recommendations-stream?user_id=...&q=...` for streamed AI-style output
+- WebApp `AI` screen with query input, recommendation list, and live SSE log
+- API tests extended for recommendation and streaming endpoints
+
 ## Repository Structure
 
 ```text
@@ -99,4 +107,4 @@ alembic upgrade head
 
 ## Next Steps
 
-- Phase 7: AI recommendations + SSE response stream
+- Phase 8: i18n (ua/en) + improved middleware localization

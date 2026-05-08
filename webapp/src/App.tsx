@@ -6,6 +6,8 @@ import {
   fetchAdminReservations,
   fetchMenu,
   fetchProfile,
+  fetchRecommendations,
+  recommendationStreamUrl,
   updateOrderStatus,
   updateReservationStatus
 } from "./api";
@@ -94,6 +96,7 @@ export function App() {
           <Link to="/">Меню</Link>
           <Link to="/cart">Кошик ({cart.length})</Link>
           <Link to="/profile">Профіль</Link>
+          <Link to="/recommend">AI</Link>
           <Link to="/admin">Admin</Link>
         </nav>
       </header>
@@ -115,6 +118,7 @@ export function App() {
           }
         />
         <Route path="/profile" element={<ProfileScreen profile={profile} />} />
+        <Route path="/recommend" element={<RecommendScreen />} />
         <Route path="/admin" element={<AdminScreen />} />
       </Routes>
     </div>
@@ -322,6 +326,59 @@ function AdminScreen() {
           ))}
         </ul>
       )}
+    </section>
+  );
+}
+
+function RecommendScreen() {
+  const [query, setQuery] = useState("гостре");
+  const [items, setItems] = useState<
+    Array<{ dish_id: string; dish_name: string; venue_name: string; category_name: string; price: number }>
+  >([]);
+  const [streamLog, setStreamLog] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  async function runRecommendations() {
+    try {
+      setError(null);
+      setStreamLog([]);
+      const result = await fetchRecommendations(1, query);
+      setItems(result);
+
+      const source = new EventSource(recommendationStreamUrl(1, query));
+      source.onmessage = (event) => {
+        setStreamLog((prev) => [...prev, event.data]);
+      };
+      source.addEventListener("done", () => {
+        source.close();
+      });
+      source.onerror = () => {
+        source.close();
+      };
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "recommendation error");
+    }
+  }
+
+  return (
+    <section className="panel">
+      <h2>AI Recommendations</h2>
+      <p>Введи побажання (наприклад: гостре, сир, морепродукти).</p>
+      <div>
+        <input value={query} onChange={(e) => setQuery(e.target.value)} />
+        <button onClick={() => void runRecommendations()}>Підібрати</button>
+      </div>
+      {error && <p>Error: {error}</p>}
+      <h3>Результати</h3>
+      <ul className="list">
+        {items.map((item) => (
+          <li key={item.dish_id}>
+            {item.dish_name} ({item.category_name}, {item.venue_name}) - {item.price} грн
+          </li>
+        ))}
+      </ul>
+      <h3>SSE Stream</h3>
+      <pre>{streamLog.join("\n")}</pre>
     </section>
   );
 }

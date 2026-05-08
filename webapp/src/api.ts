@@ -64,3 +64,30 @@ export async function updateOrderStatus(
   });
   if (!response.ok) throw new Error("Failed to update order status");
 }
+
+export type RecommendationItem = {
+  venue_id: string;
+  venue_name: string;
+  category_id: string;
+  category_name: string;
+  dish_id: string;
+  dish_name: string;
+  price: number;
+  score: number;
+};
+
+export async function fetchRecommendations(userId: number, query: string): Promise<RecommendationItem[]> {
+  const url = new URL(`${apiBase}/webapp/recommendations/${userId}`);
+  if (query.trim()) url.searchParams.set("q", query.trim());
+  const response = await fetch(url.toString());
+  if (!response.ok) throw new Error("Failed to load recommendations");
+  const data = (await response.json()) as { ok: boolean; items: RecommendationItem[] };
+  return data.items;
+}
+
+export function recommendationStreamUrl(userId: number, query: string): string {
+  const url = new URL(`${apiBase}/webapp/recommendations-stream`);
+  url.searchParams.set("user_id", String(userId));
+  if (query.trim()) url.searchParams.set("q", query.trim());
+  return url.toString();
+}
