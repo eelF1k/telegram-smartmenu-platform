@@ -1,9 +1,20 @@
 import asyncio
 
+from bot.app import create_bot, create_dispatcher
+from bot.config import BotSettings
+
 
 async def main() -> None:
-    # Placeholder for phase-1 aiogram startup
-    await asyncio.sleep(0)
+    settings = BotSettings()
+    bot = create_bot(settings)
+    dp = create_dispatcher(settings)
+
+    if settings.bot_mode == "webhook":
+        # Webhook mode is handled by FastAPI endpoint in api.app.
+        await bot.session.close()
+        return
+
+    await dp.start_polling(bot)
 
 
 if __name__ == "__main__":
