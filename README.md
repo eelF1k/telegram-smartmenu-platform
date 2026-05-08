@@ -167,6 +167,18 @@ SmartMenu is a multi-module Telegram-first platform for restaurant digital menus
 - Hooked tracing setup into both API process and worker process startup
 - Added dependency updates for SMTP + OTLP exporter stack
 
+## Phase 16 (Delivery Policy Engine)
+
+- Added policy engine `shared/delivery_policy.py` for notification routing decisions
+- Implemented policy decision fields:
+  - `channel` (routing target)
+  - `priority` (`high` / `normal` / `low`)
+  - `allowed` + `reason` (rate-limit outcome)
+- Added delivery rate caps per channel (sliding 60s window)
+- Integrated policy engine into API and worker queue processing flow
+- Added runtime setting `DELIVERY_RATE_LIMIT_PER_MINUTE`
+- Added tests for policy routing and rate-limit behavior
+
 ## Repository Structure
 
 ```text
@@ -205,4 +217,4 @@ alembic upgrade head
 
 ## Next Steps
 
-- Phase 16: notification delivery policy engine (routing rules + priority + rate caps)
+- Phase 17: tenant-aware policies + per-venue delivery overrides

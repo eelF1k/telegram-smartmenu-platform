@@ -1,6 +1,6 @@
 from httpx import ASGITransport, AsyncClient
 
-from api.app import app, queue_store
+from api.app import app, policy_engine, queue_store
 from shared.outbox_store import outbox_store
 
 
@@ -9,6 +9,7 @@ async def test_queue_enqueue_list_and_process() -> None:
         queue_store.reset()
     if hasattr(outbox_store, "reset"):
         outbox_store.reset()
+    policy_engine._events.clear()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         enqueue_response = await client.post(
@@ -32,6 +33,7 @@ async def test_order_status_update_enqueues_notification_job() -> None:
         queue_store.reset()
     if hasattr(outbox_store, "reset"):
         outbox_store.reset()
+    policy_engine._events.clear()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         await client.post("/webapp/confirm", json={"user_id": 7, "total": 15000})
@@ -54,6 +56,7 @@ async def test_queue_retry_and_dead_letter_flow() -> None:
         queue_store.reset()
     if hasattr(outbox_store, "reset"):
         outbox_store.reset()
+    policy_engine._events.clear()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         enqueue_response = await client.post(
@@ -86,6 +89,7 @@ async def test_notification_outbox_is_idempotent_on_duplicate_processing() -> No
         queue_store.reset()
     if hasattr(outbox_store, "reset"):
         outbox_store.reset()
+    policy_engine._events.clear()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         await client.post(
@@ -113,6 +117,7 @@ async def test_metrics_endpoint_exposes_queue_metrics() -> None:
         queue_store.reset()
     if hasattr(outbox_store, "reset"):
         outbox_store.reset()
+    policy_engine._events.clear()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         await client.post(
@@ -124,3 +129,29 @@ async def test_metrics_endpoint_exposes_queue_metrics() -> None:
 
     assert metrics.status_code == 200
     assert "smartmenu_queue_process_total" in metrics.text
+
+
+async def test_queue_rate_limit_creates_throttled_status() -> None:
+    if hasattr(queue_store, "reset"):
+        queue_store.reset()
+    if hasattr(outbox_store, "reset"):
+        outbox_store.reset()
+    policy_engine._events.clear()
+    policy_engine._rate_limit_per_minute = 1
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        await client.post(
+            "/queue/enqueue",
+            json={"kind": "notify_order_created", "payload": {"user_id": 10}},
+        )
+        await client.post(
+            "/queue/enqueue",
+            json={"kind": "notify_order_created", "payload": {"user_id": 11}},
+        )
+        first = await client.post("/queue/process-next")
+        second = await client.post("/queue/process-next")
+    policy_engine._rate_limit_per_minute = 60
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["status"] in {"done", "pending"}
+    assert second.json()["status"] in {"pending", "dead_letter"}
