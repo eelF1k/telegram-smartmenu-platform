@@ -22,3 +22,4 @@ class BotSettings(BaseSettings):
     smtp_from_email: str = "noreply@smartmenu.local"
     otel_enabled: bool = False
     otel_exporter_otlp_endpoint: str = ""
+    delivery_rate_limit_per_minute: int = 60

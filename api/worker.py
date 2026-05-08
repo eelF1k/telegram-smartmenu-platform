@@ -3,6 +3,7 @@ import logging
 
 from bot.config import BotSettings
 from shared.delivery_adapters import build_delivery_adapters
+from shared.delivery_policy import DeliveryPolicyEngine
 from shared.observability import new_trace_id
 from shared.outbox_store import outbox_store
 from shared.queue_factory import build_queue_store
@@ -18,6 +19,7 @@ queue_store = build_queue_store(
     redis_prefix=settings.queue_redis_prefix,
 )
 delivery_adapters = build_delivery_adapters()
+policy_engine = DeliveryPolicyEngine(rate_limit_per_minute=settings.delivery_rate_limit_per_minute)
 
 
 async def run_worker(poll_interval_seconds: float = 1.0) -> None:
@@ -27,6 +29,7 @@ async def run_worker(poll_interval_seconds: float = 1.0) -> None:
             queue_store,
             outbox=outbox_store,
             delivery_adapters=delivery_adapters,
+            policy_engine=policy_engine,
         )
         if not processed or not job:
             await asyncio.sleep(poll_interval_seconds)

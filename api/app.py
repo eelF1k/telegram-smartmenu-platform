@@ -11,6 +11,7 @@ from bot.config import BotSettings
 from bot.menu_data import MENU_DATA
 from shared.admin_store import admin_store
 from shared.delivery_adapters import build_delivery_adapters
+from shared.delivery_policy import DeliveryPolicyEngine
 from shared.observability import export_metrics, new_trace_id
 from shared.outbox_store import outbox_store
 from shared.queue_factory import build_queue_store
@@ -28,6 +29,7 @@ queue_store = build_queue_store(
     redis_prefix=settings.queue_redis_prefix,
 )
 delivery_adapters = build_delivery_adapters()
+policy_engine = DeliveryPolicyEngine(rate_limit_per_minute=settings.delivery_rate_limit_per_minute)
 
 
 @app.get("/health")
@@ -214,6 +216,7 @@ async def queue_process_next() -> dict:
         queue_store,
         outbox=outbox_store,
         delivery_adapters=delivery_adapters,
+        policy_engine=policy_engine,
     )
     if not processed or not job:
         return {"ok": True, "processed": False, "trace_id": trace_id}
