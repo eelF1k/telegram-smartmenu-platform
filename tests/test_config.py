@@ -6,3 +6,4 @@ def test_bot_settings_defaults() -> None:
     assert settings.bot_mode in {"polling", "webhook"}
     assert settings.webhook_secret
     assert settings.default_locale in {"uk", "en"}
+    assert settings.queue_backend in {"memory", "redis"}

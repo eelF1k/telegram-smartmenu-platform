@@ -12,3 +12,5 @@ class BotSettings(BaseSettings):
     database_url: str = "postgresql+asyncpg://smartmenu:smartmenu@localhost:5432/smartmenu"
     throttle_per_minute: int = 30
     default_locale: str = "uk"
+    queue_backend: str = "memory"
+    queue_redis_prefix: str = "smartmenu:queue"

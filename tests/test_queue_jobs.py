@@ -1,11 +1,11 @@
 from httpx import ASGITransport, AsyncClient
 
-from api.app import app
-from shared.queue_jobs import job_queue
+from api.app import app, queue_store
 
 
 async def test_queue_enqueue_list_and_process() -> None:
-    job_queue.reset()
+    if hasattr(queue_store, "reset"):
+        queue_store.reset()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         enqueue_response = await client.post(
@@ -25,7 +25,8 @@ async def test_queue_enqueue_list_and_process() -> None:
 
 
 async def test_order_status_update_enqueues_notification_job() -> None:
-    job_queue.reset()
+    if hasattr(queue_store, "reset"):
+        queue_store.reset()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         await client.post("/webapp/confirm", json={"user_id": 7, "total": 15000})
@@ -44,7 +45,8 @@ async def test_order_status_update_enqueues_notification_job() -> None:
 
 
 async def test_queue_retry_and_dead_letter_flow() -> None:
-    job_queue.reset()
+    if hasattr(queue_store, "reset"):
+        queue_store.reset()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         enqueue_response = await client.post(
