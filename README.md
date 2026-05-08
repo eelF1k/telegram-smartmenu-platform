@@ -155,6 +155,18 @@ SmartMenu is a multi-module Telegram-first platform for restaurant digital menus
 - Added trace-id generation for queue processing responses and worker logs
 - Extended tests to validate metrics endpoint output for notification pipeline
 
+## Phase 15 (SMTP Provider + OpenTelemetry Wiring)
+
+- Upgraded email delivery adapter to real SMTP transport using `aiosmtplib`
+- Added SMTP runtime settings:
+  - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`
+- Added OpenTelemetry bootstrap wiring in `shared/tracing.py`
+- Added runtime OTEL settings:
+  - `OTEL_ENABLED`
+  - `OTEL_EXPORTER_OTLP_ENDPOINT`
+- Hooked tracing setup into both API process and worker process startup
+- Added dependency updates for SMTP + OTLP exporter stack
+
 ## Repository Structure
 
 ```text
@@ -193,4 +205,4 @@ alembic upgrade head
 
 ## Next Steps
 
-- Phase 15: provider-grade SMTP integration + OpenTelemetry exporter wiring
+- Phase 16: notification delivery policy engine (routing rules + priority + rate caps)

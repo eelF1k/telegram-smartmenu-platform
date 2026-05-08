@@ -15,3 +15,10 @@ class BotSettings(BaseSettings):
     queue_backend: str = "memory"
     queue_redis_prefix: str = "smartmenu:queue"
     delivery_webhook_url: str = ""
+    smtp_host: str = "localhost"
+    smtp_port: int = 25
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_from_email: str = "noreply@smartmenu.local"
+    otel_enabled: bool = False
+    otel_exporter_otlp_endpoint: str = ""
