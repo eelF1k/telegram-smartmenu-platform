@@ -1,3 +1,6 @@
+from socket import create_connection
+from urllib.parse import urlparse
+
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.fsm.storage.redis import RedisStorage
@@ -36,6 +39,11 @@ def create_dispatcher(settings: BotSettings) -> Dispatcher:
 
 def _create_storage(settings: BotSettings):
     try:
+        parsed = urlparse(settings.redis_url)
+        host = parsed.hostname or "localhost"
+        port = parsed.port or 6379
+        with create_connection((host, port), timeout=0.5):
+            pass
         redis = Redis.from_url(settings.redis_url)
         return RedisStorage(redis=redis)
     except Exception:
