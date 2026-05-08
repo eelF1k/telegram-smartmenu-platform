@@ -77,6 +77,20 @@ SmartMenu is a multi-module Telegram-first platform for restaurant digital menus
 - Localized middleware replies for throttling and banned users
 - Added tests for locale detection and message translation
 
+## Phase 9 (Queue Worker + Async Notification Jobs)
+
+- Added in-memory queue layer `shared/queue_jobs.py` with job lifecycle (`pending`, `processing`, `done`, `failed`)
+- Added queue API endpoints:
+  - `POST /queue/enqueue`
+  - `GET /queue/jobs?status=...`
+  - `POST /queue/process-next`
+- Added automatic enqueueing for notification jobs when:
+  - order is created via `/webapp/confirm`
+  - reservation status changes in admin API
+  - order status changes in admin API
+- Added worker runner `api/worker.py` for continuous background processing
+- Added integration tests for queue endpoints and status-change enqueue behavior
+
 ## Repository Structure
 
 ```text
@@ -115,4 +129,4 @@ alembic upgrade head
 
 ## Next Steps
 
-- Phase 9: queue workers + async notification jobs (ARQ/Celery-ready layer)
+- Phase 10: ARQ/Celery adapter + retry/backoff and dead-letter queue
