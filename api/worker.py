@@ -1,19 +1,26 @@
 import asyncio
 import logging
 
-from shared.queue_jobs import job_queue
+from bot.config import BotSettings
+from shared.queue_factory import build_queue_store
 from shared.queue_processor import process_next_job
 
 logger = logging.getLogger(__name__)
+settings = BotSettings()
+queue_store = build_queue_store(
+    settings.queue_backend,
+    redis_url=settings.redis_url,
+    redis_prefix=settings.queue_redis_prefix,
+)
 
 
 async def run_worker(poll_interval_seconds: float = 1.0) -> None:
     while True:
-        processed, job = process_next_job(job_queue)
+        processed, job = process_next_job(queue_store)
         if not processed or not job:
             await asyncio.sleep(poll_interval_seconds)
             continue
-        status = next(item.status for item in job_queue.list_jobs() if item.job_id == job.job_id)
+        status = next(item.status for item in queue_store.list_jobs() if item.job_id == job.job_id)
         if status == "done":
             logger.info("queue_job_done", extra={"job_id": job.job_id, "kind": job.kind})
         elif status == "dead_letter":

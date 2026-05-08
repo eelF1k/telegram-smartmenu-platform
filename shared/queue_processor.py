@@ -1,4 +1,5 @@
-from shared.queue_jobs import InMemoryJobQueue, QueueJob
+from shared.queue_jobs import QueueJob
+from shared.queue_protocol import QueueStoreProtocol
 
 SUPPORTED_JOB_KINDS = {
     "notify_order_created",
@@ -7,7 +8,7 @@ SUPPORTED_JOB_KINDS = {
 }
 
 
-def process_next_job(queue: InMemoryJobQueue) -> tuple[bool, QueueJob | None]:
+def process_next_job(queue: QueueStoreProtocol) -> tuple[bool, QueueJob | None]:
     job = queue.claim_next()
     if not job:
         return False, None

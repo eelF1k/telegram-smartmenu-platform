@@ -10,15 +10,18 @@ from bot.app import create_bot, create_dispatcher
 from bot.config import BotSettings
 from bot.menu_data import MENU_DATA
 from shared.admin_store import admin_store
-from shared.queue_adapter import build_queue_adapter
-from shared.queue_jobs import job_queue
+from shared.queue_factory import build_queue_store
 from shared.queue_processor import process_next_job
 
 app = FastAPI(title="SmartMenu API", version="0.1.0")
 settings = BotSettings()
 bot = create_bot(settings)
 dispatcher = create_dispatcher(settings)
-queue_adapter = build_queue_adapter("memory")
+queue_store = build_queue_store(
+    settings.queue_backend,
+    redis_url=settings.redis_url,
+    redis_prefix=settings.queue_redis_prefix,
+)
 
 
 @app.get("/health")
@@ -74,7 +77,7 @@ async def webapp_confirm(payload: dict) -> dict:
     user_id = int(payload.get("user_id", 0))
     total = int(payload.get("total", 0))
     order = admin_store.create_order(user_id=user_id, total=total)
-    queue_adapter.enqueue(
+    queue_store.enqueue(
         kind="notify_order_created",
         payload={"user_id": user_id, "order_id": order.order_id, "total": total},
     )
@@ -129,7 +132,7 @@ async def admin_update_reservation_status(reservation_id: int, payload: dict) ->
     updated = admin_store.update_reservation_status(reservation_id=reservation_id, status=status)
     if not updated:
         raise HTTPException(status_code=404, detail="reservation_not_found")
-    queue_adapter.enqueue(
+    queue_store.enqueue(
         kind="notify_reservation_status",
         payload={
             "user_id": updated.user_id,
@@ -153,7 +156,7 @@ async def admin_update_order_status(order_id: int, payload: dict) -> dict:
     updated = admin_store.update_order_status(order_id=order_id, status=status)
     if not updated:
         raise HTTPException(status_code=404, detail="order_not_found")
-    queue_adapter.enqueue(
+    queue_store.enqueue(
         kind="notify_order_status",
         payload={
             "user_id": updated.user_id,
@@ -178,7 +181,7 @@ async def queue_enqueue(payload: dict) -> dict:
         raise HTTPException(status_code=400, detail="max_attempts_must_be_positive")
     if backoff_seconds < 0:
         raise HTTPException(status_code=400, detail="backoff_seconds_must_be_non_negative")
-    job = queue_adapter.enqueue(
+    job = queue_store.enqueue(
         kind=kind,
         payload=body,
         max_attempts=max_attempts,
@@ -189,15 +192,15 @@ async def queue_enqueue(payload: dict) -> dict:
 
 @app.get("/queue/jobs")
 async def queue_jobs(status: str | None = None) -> dict:
-    return {"ok": True, "jobs": [job.__dict__ for job in job_queue.list_jobs(status=status)]}
+    return {"ok": True, "jobs": [job.__dict__ for job in queue_store.list_jobs(status=status)]}
 
 
 @app.post("/queue/process-next")
 async def queue_process_next() -> dict:
-    processed, job = process_next_job(job_queue)
+    processed, job = process_next_job(queue_store)
     if not processed or not job:
         return {"ok": True, "processed": False}
-    status = next(item.status for item in job_queue.list_jobs() if item.job_id == job.job_id)
+    status = next(item.status for item in queue_store.list_jobs() if item.job_id == job.job_id)
     return {"ok": True, "processed": True, "job_id": job.job_id, "status": status}
 
 
