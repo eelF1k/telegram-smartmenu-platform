@@ -143,6 +143,18 @@ SmartMenu is a multi-module Telegram-first platform for restaurant digital menus
 - Integrated async outbox in both API queue processing endpoint and worker loop
 - Added schema test coverage for `notification_outbox` model
 
+## Phase 14 (Delivery Metrics + Trace IDs)
+
+- Added Prometheus-ready observability module `shared/observability.py`
+- Added queue and delivery metrics:
+  - `smartmenu_queue_process_total`
+  - `smartmenu_queue_process_duration_seconds`
+  - `smartmenu_delivery_total`
+  - `smartmenu_delivery_duration_seconds`
+- Added API endpoint `GET /metrics` for scraping metrics
+- Added trace-id generation for queue processing responses and worker logs
+- Extended tests to validate metrics endpoint output for notification pipeline
+
 ## Repository Structure
 
 ```text
@@ -181,4 +193,4 @@ alembic upgrade head
 
 ## Next Steps
 
-- Phase 14: provider-grade SMTP integration + delivery metrics and tracing
+- Phase 15: provider-grade SMTP integration + OpenTelemetry exporter wiring

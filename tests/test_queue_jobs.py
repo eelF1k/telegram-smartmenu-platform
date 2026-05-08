@@ -106,3 +106,21 @@ async def test_notification_outbox_is_idempotent_on_duplicate_processing() -> No
     assert second.json()["status"] == "done"
     assert outbox.status_code == 200
     assert len(outbox.json()["records"]) == 1
+
+
+async def test_metrics_endpoint_exposes_queue_metrics() -> None:
+    if hasattr(queue_store, "reset"):
+        queue_store.reset()
+    if hasattr(outbox_store, "reset"):
+        outbox_store.reset()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        await client.post(
+            "/queue/enqueue",
+            json={"kind": "notify_order_status", "payload": {"order_id": 900, "user_id": 10}},
+        )
+        await client.post("/queue/process-next")
+        metrics = await client.get("/metrics")
+
+    assert metrics.status_code == 200
+    assert "smartmenu_queue_process_total" in metrics.text
