@@ -179,6 +179,18 @@ SmartMenu is a multi-module Telegram-first platform for restaurant digital menus
 - Added runtime setting `DELIVERY_RATE_LIMIT_PER_MINUTE`
 - Added tests for policy routing and rate-limit behavior
 
+## Phase 17 (Tenant-aware Policy + Venue Overrides)
+
+- Extended policy engine with tenant-aware rate limits (`set_tenant_rate_limit`)
+- Added per-venue overrides (`set_venue_override`) for forced channel/priority routing
+- Updated policy resolution order:
+  - venue override first
+  - then job kind / payload defaults
+- Added tests for:
+  - venue override channel + priority behavior
+  - tenant-specific throttling
+  - queue integration path with overridden venue routing
+
 ## Repository Structure
 
 ```text
@@ -217,4 +229,4 @@ alembic upgrade head
 
 ## Next Steps
 
-- Phase 17: tenant-aware policies + per-venue delivery overrides
+- Phase 18: policy persistence (DB-backed rules) + admin endpoints for runtime updates
