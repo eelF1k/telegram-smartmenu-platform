@@ -3,6 +3,7 @@ import logging
 
 from bot.config import BotSettings
 from shared.delivery_adapters import build_delivery_adapters
+from shared.observability import new_trace_id
 from shared.outbox_store import outbox_store
 from shared.queue_factory import build_queue_store
 from shared.queue_processor import process_next_job
@@ -19,6 +20,7 @@ delivery_adapters = build_delivery_adapters()
 
 async def run_worker(poll_interval_seconds: float = 1.0) -> None:
     while True:
+        trace_id = new_trace_id()
         processed, job = await process_next_job(
             queue_store,
             outbox=outbox_store,
@@ -29,13 +31,19 @@ async def run_worker(poll_interval_seconds: float = 1.0) -> None:
             continue
         status = next(item.status for item in queue_store.list_jobs() if item.job_id == job.job_id)
         if status == "done":
-            logger.info("queue_job_done", extra={"job_id": job.job_id, "kind": job.kind})
+            logger.info(
+                "queue_job_done",
+                extra={"job_id": job.job_id, "kind": job.kind, "trace_id": trace_id},
+            )
         elif status == "dead_letter":
-            logger.warning("queue_job_dead_letter", extra={"job_id": job.job_id, "kind": job.kind})
+            logger.warning(
+                "queue_job_dead_letter",
+                extra={"job_id": job.job_id, "kind": job.kind, "trace_id": trace_id},
+            )
         else:
             logger.warning(
                 "queue_job_retry_scheduled",
-                extra={"job_id": job.job_id, "kind": job.kind},
+                extra={"job_id": job.job_id, "kind": job.kind, "trace_id": trace_id},
             )
 
 

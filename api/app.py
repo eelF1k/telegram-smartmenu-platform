@@ -2,7 +2,7 @@ import asyncio
 
 from aiogram.types import Update
 from fastapi import FastAPI, Header, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 
 from api.recommendations import build_recommendation_text, recommend_dishes
 from api.uow import uow_context
@@ -11,6 +11,7 @@ from bot.config import BotSettings
 from bot.menu_data import MENU_DATA
 from shared.admin_store import admin_store
 from shared.delivery_adapters import build_delivery_adapters
+from shared.observability import export_metrics, new_trace_id
 from shared.outbox_store import outbox_store
 from shared.queue_factory import build_queue_store
 from shared.queue_processor import process_next_job
@@ -30,6 +31,12 @@ delivery_adapters = build_delivery_adapters()
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/metrics")
+async def metrics() -> Response:
+    payload, content_type = export_metrics()
+    return Response(content=payload, media_type=content_type)
 
 
 @app.get("/webapp/menu")
@@ -200,15 +207,22 @@ async def queue_jobs(status: str | None = None) -> dict:
 
 @app.post("/queue/process-next")
 async def queue_process_next() -> dict:
+    trace_id = new_trace_id()
     processed, job = await process_next_job(
         queue_store,
         outbox=outbox_store,
         delivery_adapters=delivery_adapters,
     )
     if not processed or not job:
-        return {"ok": True, "processed": False}
+        return {"ok": True, "processed": False, "trace_id": trace_id}
     status = next(item.status for item in queue_store.list_jobs() if item.job_id == job.job_id)
-    return {"ok": True, "processed": True, "job_id": job.job_id, "status": status}
+    return {
+        "ok": True,
+        "processed": True,
+        "job_id": job.job_id,
+        "status": status,
+        "trace_id": trace_id,
+    }
 
 
 @app.get("/queue/outbox")
