@@ -8,3 +8,8 @@ class OrderFlow(StatesGroup):
     modifiers = State()
     destination = State()
     payment = State()
+
+
+class ReserveFlow(StatesGroup):
+    venue = State()
+    datetime = State()

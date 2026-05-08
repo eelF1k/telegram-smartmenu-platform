@@ -18,6 +18,14 @@ SmartMenu is a multi-module Telegram-first platform for restaurant digital menus
 - Webhook endpoint in API with `WEBHOOK_SECRET` validation
 - Runtime switch via `BOT_MODE=polling|webhook`
 
+## Phase 2 (Ordering FSM + Pagination)
+
+- `/menu` now starts a real FSM ordering flow
+- Inline callbacks for venue/category/dish/modifier/payment
+- Pagination for categories and dishes via callback buttons
+- Multi-step order state: venue -> category -> dish -> modifiers -> destination -> payment
+- Reservation flow isolated into separate FSM states
+
 ## Repository Structure
 
 ```text
@@ -48,6 +56,5 @@ python -m bot.main
 
 ## Next Steps
 
-- Phase 2: menu ordering flow and Redis FSM storage
 - Phase 3: Telegram WebApp (React + TWA SDK)
 - Phase 4: database layer, repositories, migrations
