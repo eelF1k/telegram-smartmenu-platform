@@ -2,22 +2,27 @@ import asyncio
 import logging
 
 from shared.queue_jobs import job_queue
+from shared.queue_processor import process_next_job
 
 logger = logging.getLogger(__name__)
 
 
 async def run_worker(poll_interval_seconds: float = 1.0) -> None:
     while True:
-        job = job_queue.claim_next()
-        if not job:
+        processed, job = process_next_job(job_queue)
+        if not processed or not job:
             await asyncio.sleep(poll_interval_seconds)
             continue
-        if job.kind in {"notify_order_created", "notify_order_status", "notify_reservation_status"}:
-            job_queue.complete(job.job_id)
+        status = next(item.status for item in job_queue.list_jobs() if item.job_id == job.job_id)
+        if status == "done":
             logger.info("queue_job_done", extra={"job_id": job.job_id, "kind": job.kind})
+        elif status == "dead_letter":
+            logger.warning("queue_job_dead_letter", extra={"job_id": job.job_id, "kind": job.kind})
         else:
-            job_queue.fail(job.job_id)
-            logger.warning("queue_job_failed", extra={"job_id": job.job_id, "kind": job.kind})
+            logger.warning(
+                "queue_job_retry_scheduled",
+                extra={"job_id": job.job_id, "kind": job.kind},
+            )
 
 
 if __name__ == "__main__":

@@ -91,6 +91,19 @@ SmartMenu is a multi-module Telegram-first platform for restaurant digital menus
 - Added worker runner `api/worker.py` for continuous background processing
 - Added integration tests for queue endpoints and status-change enqueue behavior
 
+## Phase 10 (Retry/Backoff + Dead-Letter + Queue Adapter)
+
+- Extended queue model with retry metadata: `max_attempts`, `backoff_seconds`, `available_at`
+- Added exponential backoff scheduling on failures
+- Added dead-letter behavior (`dead_letter` status) after retry limit is reached
+- Added queue adapter abstraction in `shared/queue_adapter.py`:
+  - `InMemoryQueueAdapter` (active)
+  - `ArqQueueAdapter` (stub for next infra step)
+  - `CeleryQueueAdapter` (stub for next infra step)
+- Unified processing logic in `shared/queue_processor.py` and reused by API/worker
+- Added API support for custom retry settings in `POST /queue/enqueue`
+- Added tests for retry -> dead-letter flow
+
 ## Repository Structure
 
 ```text
@@ -129,4 +142,4 @@ alembic upgrade head
 
 ## Next Steps
 
-- Phase 10: ARQ/Celery adapter + retry/backoff and dead-letter queue
+- Phase 11: Redis-backed queue backend + real ARQ worker wiring

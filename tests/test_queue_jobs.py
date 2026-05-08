@@ -1,9 +1,11 @@
 from httpx import ASGITransport, AsyncClient
 
 from api.app import app
+from shared.queue_jobs import job_queue
 
 
 async def test_queue_enqueue_list_and_process() -> None:
+    job_queue.reset()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         enqueue_response = await client.post(
@@ -23,6 +25,7 @@ async def test_queue_enqueue_list_and_process() -> None:
 
 
 async def test_order_status_update_enqueues_notification_job() -> None:
+    job_queue.reset()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         await client.post("/webapp/confirm", json={"user_id": 7, "total": 15000})
@@ -38,3 +41,32 @@ async def test_order_status_update_enqueues_notification_job() -> None:
     assert update_response.status_code == 200
     assert pending_jobs.status_code == 200
     assert any(job["kind"] == "notify_order_status" for job in pending_jobs.json()["jobs"])
+
+
+async def test_queue_retry_and_dead_letter_flow() -> None:
+    job_queue.reset()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        enqueue_response = await client.post(
+            "/queue/enqueue",
+            json={
+                "kind": "unknown_kind",
+                "payload": {"x": 1},
+                "max_attempts": 2,
+                "backoff_seconds": 0,
+            },
+        )
+        first_process = await client.post("/queue/process-next")
+        pending_after_first = await client.get("/queue/jobs", params={"status": "pending"})
+        second_process = await client.post("/queue/process-next")
+        dead_letter = await client.get("/queue/jobs", params={"status": "dead_letter"})
+
+    assert enqueue_response.status_code == 200
+    assert first_process.status_code == 200
+    assert first_process.json()["status"] == "pending"
+    assert pending_after_first.status_code == 200
+    assert len(pending_after_first.json()["jobs"]) >= 1
+    assert second_process.status_code == 200
+    assert second_process.json()["status"] == "dead_letter"
+    assert dead_letter.status_code == 200
+    assert any(job["kind"] == "unknown_kind" for job in dead_letter.json()["jobs"])

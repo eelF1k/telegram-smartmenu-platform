@@ -10,12 +10,15 @@ from bot.app import create_bot, create_dispatcher
 from bot.config import BotSettings
 from bot.menu_data import MENU_DATA
 from shared.admin_store import admin_store
+from shared.queue_adapter import build_queue_adapter
 from shared.queue_jobs import job_queue
+from shared.queue_processor import process_next_job
 
 app = FastAPI(title="SmartMenu API", version="0.1.0")
 settings = BotSettings()
 bot = create_bot(settings)
 dispatcher = create_dispatcher(settings)
+queue_adapter = build_queue_adapter("memory")
 
 
 @app.get("/health")
@@ -71,7 +74,7 @@ async def webapp_confirm(payload: dict) -> dict:
     user_id = int(payload.get("user_id", 0))
     total = int(payload.get("total", 0))
     order = admin_store.create_order(user_id=user_id, total=total)
-    job_queue.enqueue(
+    queue_adapter.enqueue(
         kind="notify_order_created",
         payload={"user_id": user_id, "order_id": order.order_id, "total": total},
     )
@@ -126,7 +129,7 @@ async def admin_update_reservation_status(reservation_id: int, payload: dict) ->
     updated = admin_store.update_reservation_status(reservation_id=reservation_id, status=status)
     if not updated:
         raise HTTPException(status_code=404, detail="reservation_not_found")
-    job_queue.enqueue(
+    queue_adapter.enqueue(
         kind="notify_reservation_status",
         payload={
             "user_id": updated.user_id,
@@ -150,7 +153,7 @@ async def admin_update_order_status(order_id: int, payload: dict) -> dict:
     updated = admin_store.update_order_status(order_id=order_id, status=status)
     if not updated:
         raise HTTPException(status_code=404, detail="order_not_found")
-    job_queue.enqueue(
+    queue_adapter.enqueue(
         kind="notify_order_status",
         payload={
             "user_id": updated.user_id,
@@ -165,11 +168,22 @@ async def admin_update_order_status(order_id: int, payload: dict) -> dict:
 async def queue_enqueue(payload: dict) -> dict:
     kind = str(payload.get("kind", "")).strip()
     body = payload.get("payload", {})
+    max_attempts = int(payload.get("max_attempts", 3))
+    backoff_seconds = float(payload.get("backoff_seconds", 1.0))
     if not kind:
         raise HTTPException(status_code=400, detail="kind_required")
     if not isinstance(body, dict):
         raise HTTPException(status_code=400, detail="payload_must_be_object")
-    job = job_queue.enqueue(kind=kind, payload=body)
+    if max_attempts < 1:
+        raise HTTPException(status_code=400, detail="max_attempts_must_be_positive")
+    if backoff_seconds < 0:
+        raise HTTPException(status_code=400, detail="backoff_seconds_must_be_non_negative")
+    job = queue_adapter.enqueue(
+        kind=kind,
+        payload=body,
+        max_attempts=max_attempts,
+        backoff_seconds=backoff_seconds,
+    )
     return {"ok": True, "job": job.__dict__}
 
 
@@ -180,15 +194,11 @@ async def queue_jobs(status: str | None = None) -> dict:
 
 @app.post("/queue/process-next")
 async def queue_process_next() -> dict:
-    job = job_queue.claim_next()
-    if not job:
+    processed, job = process_next_job(job_queue)
+    if not processed or not job:
         return {"ok": True, "processed": False}
-    # Demo worker behavior: route by kind, mark done (or failed if kind unsupported)
-    if job.kind in {"notify_order_created", "notify_order_status", "notify_reservation_status"}:
-        job_queue.complete(job.job_id)
-        return {"ok": True, "processed": True, "job_id": job.job_id, "status": "done"}
-    job_queue.fail(job.job_id)
-    return {"ok": True, "processed": True, "job_id": job.job_id, "status": "failed"}
+    status = next(item.status for item in job_queue.list_jobs() if item.job_id == job.job_id)
+    return {"ok": True, "processed": True, "job_id": job.job_id, "status": status}
 
 
 @app.post("/telegram/webhook/{secret}")
