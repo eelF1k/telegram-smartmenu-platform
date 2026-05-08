@@ -34,3 +34,23 @@ async def test_admin_orders_status_update() -> None:
     assert list_response.status_code == 200
     assert update_response.status_code == 200
     assert update_response.json()["order"]["status"] == "completed"
+
+
+async def test_admin_policy_rules_upsert_and_list() -> None:
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        upsert_response = await client.post(
+            "/admin/policy-rules",
+            json={
+                "scope": "tenant",
+                "scope_key": "tenant-test",
+                "rate_limit_per_minute": 5,
+            },
+        )
+        list_response = await client.get("/admin/policy-rules")
+    assert upsert_response.status_code == 200
+    assert list_response.status_code == 200
+    assert any(
+        row["scope"] == "tenant" and row["scope_key"] == "tenant-test"
+        for row in list_response.json()["rules"]
+    )

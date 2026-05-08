@@ -191,6 +191,16 @@ SmartMenu is a multi-module Telegram-first platform for restaurant digital menus
   - tenant-specific throttling
   - queue integration path with overridden venue routing
 
+## Phase 18 (Policy Persistence + Admin Runtime Updates)
+
+- Added DB model `delivery_policy_rules` and migration `0003_delivery_policy_rules`
+- Added admin policy endpoints:
+  - `GET /admin/policy-rules`
+  - `POST /admin/policy-rules`
+- Added runtime policy reload function that syncs DB rules into the in-memory policy engine
+- Added safe fallback mode for local/demo when DB is unavailable
+- Added test coverage for policy-rule upsert/list flow via admin API
+
 ## Repository Structure
 
 ```text
@@ -229,4 +239,4 @@ alembic upgrade head
 
 ## Next Steps
 
-- Phase 18: policy persistence (DB-backed rules) + admin endpoints for runtime updates
+- Phase 19: policy simulation endpoint + dry-run decision inspector
