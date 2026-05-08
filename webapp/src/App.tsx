@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 
-import { fetchMenu, fetchProfile } from "./api";
+import {
+  fetchAdminOrders,
+  fetchAdminReservations,
+  fetchMenu,
+  fetchProfile,
+  updateOrderStatus,
+  updateReservationStatus
+} from "./api";
 import { initTelegramWebApp } from "./twa";
 import type { CartItem, Venue } from "./types";
 
@@ -87,6 +94,7 @@ export function App() {
           <Link to="/">Меню</Link>
           <Link to="/cart">Кошик ({cart.length})</Link>
           <Link to="/profile">Профіль</Link>
+          <Link to="/admin">Admin</Link>
         </nav>
       </header>
 
@@ -107,6 +115,7 @@ export function App() {
           }
         />
         <Route path="/profile" element={<ProfileScreen profile={profile} />} />
+        <Route path="/admin" element={<AdminScreen />} />
       </Routes>
     </div>
   );
@@ -215,6 +224,103 @@ function ProfileScreen({
           <p>Замовлень: {profile.orders_count}</p>
           <p>Улюблений заклад: {profile.preferred_venue}</p>
         </>
+      )}
+    </section>
+  );
+}
+
+function AdminScreen() {
+  const [reservations, setReservations] = useState<
+    Array<{ reservation_id: number; user_id: number; venue: string; datetime_text: string; status: string }>
+  >([]);
+  const [orders, setOrders] = useState<
+    Array<{ order_id: number; user_id: number; total: number; status: string }>
+  >([]);
+  const [error, setError] = useState<string | null>(null);
+
+  async function reload() {
+    try {
+      const [res, ord] = await Promise.all([fetchAdminReservations(), fetchAdminOrders()]);
+      setReservations(res);
+      setOrders(ord);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Admin load failed");
+    }
+  }
+
+  useEffect(() => {
+    void reload();
+  }, []);
+
+  return (
+    <section className="panel">
+      <h2>Admin Dashboard</h2>
+      {error && <p>Error: {error}</p>}
+      <h3>Reservations</h3>
+      {reservations.length === 0 ? (
+        <p>Немає бронювань</p>
+      ) : (
+        <ul className="list">
+          {reservations.map((reservation) => (
+            <li key={reservation.reservation_id}>
+              <span>
+                #{reservation.reservation_id} {reservation.venue} {reservation.datetime_text} [
+                {reservation.status}]
+              </span>
+              <div>
+                <button
+                  onClick={async () => {
+                    await updateReservationStatus(reservation.reservation_id, "accepted");
+                    await reload();
+                  }}
+                >
+                  Прийняти
+                </button>
+                <button
+                  onClick={async () => {
+                    await updateReservationStatus(reservation.reservation_id, "rejected");
+                    await reload();
+                  }}
+                >
+                  Відхилити
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <h3>Orders</h3>
+      {orders.length === 0 ? (
+        <p>Немає замовлень</p>
+      ) : (
+        <ul className="list">
+          {orders.map((order) => (
+            <li key={order.order_id}>
+              <span>
+                #{order.order_id} user={order.user_id} total={(order.total / 100).toFixed(2)} [{order.status}]
+              </span>
+              <div>
+                <button
+                  onClick={async () => {
+                    await updateOrderStatus(order.order_id, "preparing");
+                    await reload();
+                  }}
+                >
+                  Готується
+                </button>
+                <button
+                  onClick={async () => {
+                    await updateOrderStatus(order.order_id, "completed");
+                    await reload();
+                  }}
+                >
+                  Завершено
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
       )}
     </section>
   );

@@ -5,6 +5,7 @@ from api.uow import uow_context
 from bot.app import create_bot, create_dispatcher
 from bot.config import BotSettings
 from bot.menu_data import MENU_DATA
+from shared.admin_store import admin_store
 
 app = FastAPI(title="SmartMenu API", version="0.1.0")
 settings = BotSettings()
@@ -62,7 +63,42 @@ async def webapp_profile(user_id: int) -> dict:
 
 @app.post("/webapp/confirm")
 async def webapp_confirm(payload: dict) -> dict:
+    user_id = int(payload.get("user_id", 0))
+    total = int(payload.get("total", 0))
+    admin_store.create_order(user_id=user_id, total=total)
     return {"ok": True, "received": payload}
+
+
+@app.get("/admin/reservations")
+async def admin_reservations() -> dict:
+    return {"ok": True, "reservations": [r.__dict__ for r in admin_store.list_reservations()]}
+
+
+@app.post("/admin/reservations/{reservation_id}/status")
+async def admin_update_reservation_status(reservation_id: int, payload: dict) -> dict:
+    status = str(payload.get("status", "")).strip()
+    if status not in {"pending", "accepted", "rejected", "cancelled"}:
+        raise HTTPException(status_code=400, detail="invalid_reservation_status")
+    updated = admin_store.update_reservation_status(reservation_id=reservation_id, status=status)
+    if not updated:
+        raise HTTPException(status_code=404, detail="reservation_not_found")
+    return {"ok": True, "reservation": updated.__dict__}
+
+
+@app.get("/admin/orders")
+async def admin_orders() -> dict:
+    return {"ok": True, "orders": [o.__dict__ for o in admin_store.list_orders()]}
+
+
+@app.post("/admin/orders/{order_id}/status")
+async def admin_update_order_status(order_id: int, payload: dict) -> dict:
+    status = str(payload.get("status", "")).strip()
+    if status not in {"created", "accepted", "preparing", "delivering", "completed", "cancelled"}:
+        raise HTTPException(status_code=400, detail="invalid_order_status")
+    updated = admin_store.update_order_status(order_id=order_id, status=status)
+    if not updated:
+        raise HTTPException(status_code=404, detail="order_not_found")
+    return {"ok": True, "order": updated.__dict__}
 
 
 @app.post("/telegram/webhook/{secret}")

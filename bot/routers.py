@@ -15,6 +15,7 @@ from bot.menu_data import MENU_DATA, get_category, get_dish, get_venue
 from bot.payments import get_product, list_products_text, product_prices
 from bot.referrals import ReferralService, parse_start_referral
 from bot.states import OrderFlow, ReserveFlow
+from shared.admin_store import admin_store
 
 router = Router(name="client_router")
 referrals = ReferralService()
@@ -136,9 +137,16 @@ async def reserve_venue_step(message: Message, state: FSMContext) -> None:
 async def reserve_destination_step(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     venue = data.get("venue", "заклад")
+    user_id = message.from_user.id if message.from_user else 0
+    reservation = admin_store.create_reservation(
+        user_id=user_id,
+        venue=venue,
+        datetime_text=message.text or "",
+    )
     await state.clear()
     await message.answer(
-        f"Бронювання створено: {venue}, час: {message.text}. Підтвердження надіслано."
+        f"Бронювання #{reservation.reservation_id} створено: {venue}, час: {message.text}. "
+        "Підтвердження надіслано."
     )
 
 
@@ -271,8 +279,49 @@ async def pre_checkout_handler(query: PreCheckoutQuery, bot: Bot) -> None:
 @router.message(F.successful_payment)
 async def successful_payment_handler(message: Message) -> None:
     payment = message.successful_payment
+    user_id = message.from_user.id if message.from_user else 0
+    admin_store.create_order(user_id=user_id, total=payment.total_amount)
     await message.answer(
         "Оплату отримано ✅\n"
         f"Сума: {payment.total_amount / 100:.2f} {payment.currency}\n"
         f"Payload: {payment.invoice_payload}"
     )
+
+
+@router.message(Command("admin"))
+async def admin_handler(message: Message) -> None:
+    await message.answer(
+        "Admin panel:\n"
+        "/bookings_admin - список бронювань\n"
+        "/orders_admin - список замовлень"
+    )
+
+
+@router.message(Command("bookings_admin"))
+async def bookings_admin_handler(message: Message) -> None:
+    reservations = admin_store.list_reservations()
+    if not reservations:
+        await message.answer("Бронювань поки немає.")
+        return
+    lines = ["Останні бронювання:"]
+    for reservation in reservations[-10:]:
+        lines.append(
+            f"- #{reservation.reservation_id} user={reservation.user_id} "
+            f"{reservation.venue} {reservation.datetime_text} [{reservation.status}]"
+        )
+    await message.answer("\n".join(lines))
+
+
+@router.message(Command("orders_admin"))
+async def orders_admin_handler(message: Message) -> None:
+    orders = admin_store.list_orders()
+    if not orders:
+        await message.answer("Замовлень поки немає.")
+        return
+    lines = ["Останні замовлення:"]
+    for order in orders[-10:]:
+        lines.append(
+            f"- #{order.order_id} user={order.user_id} "
+            f"total={order.total / 100:.2f} [{order.status}]"
+        )
+    await message.answer("\n".join(lines))

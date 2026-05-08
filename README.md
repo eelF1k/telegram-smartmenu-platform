@@ -50,6 +50,17 @@ SmartMenu is a multi-module Telegram-first platform for restaurant digital menus
 - Invoice issuing via `/buy <product_id>`
 - Payment hooks: `pre_checkout_query` + `successful_payment`
 
+## Phase 6 (Admin Tooling + Reservations Dashboard)
+
+- Admin commands in bot: `/admin`, `/bookings_admin`, `/orders_admin`
+- Reservation records now stored and status-managed in shared admin store
+- Admin API endpoints:
+  - `GET /admin/reservations`
+  - `POST /admin/reservations/{id}/status`
+  - `GET /admin/orders`
+  - `POST /admin/orders/{id}/status`
+- WebApp Admin screen with reservation/order status actions
+
 ## Repository Structure
 
 ```text
@@ -88,5 +99,4 @@ alembic upgrade head
 
 ## Next Steps
 
-- Phase 6: admin tooling + reservations dashboard
 - Phase 7: AI recommendations + SSE response stream
