@@ -104,6 +104,16 @@ SmartMenu is a multi-module Telegram-first platform for restaurant digital menus
 - Added API support for custom retry settings in `POST /queue/enqueue`
 - Added tests for retry -> dead-letter flow
 
+## Phase 11 (Redis Queue Backend + ARQ Wiring)
+
+- Added queue backend factory `shared/queue_factory.py` with runtime backend selection
+- Added Redis-backed queue store `shared/redis_queue.py` (same lifecycle as memory queue)
+- Switched API/worker to use `queue_store` abstraction instead of hardcoded in-memory queue
+- Added optional ARQ worker wiring in `api/arq_worker.py` (ready to run after installing `arq`)
+- Added queue backend tests and config updates:
+  - `QUEUE_BACKEND=memory|redis`
+  - `QUEUE_REDIS_PREFIX=smartmenu:queue`
+
 ## Repository Structure
 
 ```text
@@ -142,4 +152,4 @@ alembic upgrade head
 
 ## Next Steps
 
-- Phase 11: Redis-backed queue backend + real ARQ worker wiring
+- Phase 12: delivery adapters (Telegram/email/webhook) + idempotent notification outbox
