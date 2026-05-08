@@ -1,6 +1,8 @@
 from dataclasses import dataclass
+from email.message import EmailMessage
 from typing import Protocol
 
+import aiosmtplib
 import httpx
 
 from bot.config import BotSettings
@@ -33,9 +35,30 @@ class EmailDeliveryAdapter:
     channel: str = "email"
 
     async def send(self, payload: dict) -> bool:
-        # SMTP integration placeholder for a real provider in production setup.
-        _ = payload
-        return True
+        settings = BotSettings()
+        to_email = payload.get("to_email")
+        if not to_email:
+            return True
+        subject = payload.get("subject", "SmartMenu notification")
+        body = payload.get("body", str(payload))
+        message = EmailMessage()
+        message["From"] = settings.smtp_from_email
+        message["To"] = str(to_email)
+        message["Subject"] = str(subject)
+        message.set_content(str(body))
+        try:
+            await aiosmtplib.send(
+                message,
+                hostname=settings.smtp_host,
+                port=settings.smtp_port,
+                username=settings.smtp_username or None,
+                password=settings.smtp_password or None,
+                start_tls=False,
+                timeout=5,
+            )
+            return True
+        except Exception:
+            return False
 
 
 @dataclass
