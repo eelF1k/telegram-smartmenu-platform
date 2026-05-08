@@ -26,6 +26,14 @@ SmartMenu is a multi-module Telegram-first platform for restaurant digital menus
 - Multi-step order state: venue -> category -> dish -> modifiers -> destination -> payment
 - Reservation flow isolated into separate FSM states
 
+## Phase 3 (Telegram WebApp Foundation)
+
+- React + TypeScript + Vite client in `webapp/`
+- Telegram WebApp SDK integration (`ready`, `expand`, `MainButton`, `BackButton`, `sendData`)
+- Screens: Menu, Cart, Profile (React Router)
+- Cart persistence in localStorage
+- API integration: `/webapp/menu`, `/webapp/profile/{user_id}`, `/webapp/confirm`
+
 ## Repository Structure
 
 ```text
@@ -47,6 +55,7 @@ pip install -e ".[dev]"
 docker compose up -d postgres redis
 python -m uvicorn api.app:app --reload --port 8000
 python -m bot.main
+cd webapp && npm install && npm run dev
 ```
 
 ### Bot Runtime Modes

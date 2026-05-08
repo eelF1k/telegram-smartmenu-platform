@@ -3,6 +3,7 @@ from fastapi import FastAPI, Header, HTTPException
 
 from bot.app import create_bot, create_dispatcher
 from bot.config import BotSettings
+from bot.menu_data import MENU_DATA
 
 app = FastAPI(title="SmartMenu API", version="0.1.0")
 settings = BotSettings()
@@ -13,6 +14,29 @@ dispatcher = create_dispatcher(settings)
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/webapp/menu")
+async def webapp_menu() -> dict:
+    return {"ok": True, "venues": MENU_DATA}
+
+
+@app.get("/webapp/profile/{user_id}")
+async def webapp_profile(user_id: int) -> dict:
+    return {
+        "ok": True,
+        "profile": {
+            "user_id": user_id,
+            "loyalty_points": 120,
+            "orders_count": 7,
+            "preferred_venue": "vinson-git",
+        },
+    }
+
+
+@app.post("/webapp/confirm")
+async def webapp_confirm(payload: dict) -> dict:
+    return {"ok": True, "received": payload}
 
 
 @app.post("/telegram/webhook/{secret}")
