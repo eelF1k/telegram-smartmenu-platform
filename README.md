@@ -42,6 +42,14 @@ SmartMenu is a multi-module Telegram-first platform for restaurant digital menus
 - Repository layer (`UserRepository`, `VenueRepository`)
 - `/webapp/profile/{user_id}` now uses repository/UoW (with local fallback when DB is offline)
 
+## Phase 5 (Payments + Referrals)
+
+- Deep-link referrals: `/start ref123` payload parsing and registration
+- Referral dashboard in `/referral` (invite count)
+- Payment catalog via `/pricing`
+- Invoice issuing via `/buy <product_id>`
+- Payment hooks: `pre_checkout_query` + `successful_payment`
+
 ## Repository Structure
 
 ```text
@@ -80,5 +88,5 @@ alembic upgrade head
 
 ## Next Steps
 
-- Phase 5: payments + referral deep-links + pre_checkout flow
 - Phase 6: admin tooling + reservations dashboard
+- Phase 7: AI recommendations + SSE response stream

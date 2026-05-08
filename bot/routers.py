@@ -1,8 +1,9 @@
-from aiogram import F, Router
+from aiogram import Bot, F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, Message, PreCheckoutQuery
 
+from bot.config import BotSettings
 from bot.keyboards import (
     categories_keyboard,
     dishes_keyboard,
@@ -11,16 +12,28 @@ from bot.keyboards import (
     venues_keyboard,
 )
 from bot.menu_data import MENU_DATA, get_category, get_dish, get_venue
+from bot.payments import get_product, list_products_text, product_prices
+from bot.referrals import ReferralService, parse_start_referral
 from bot.states import OrderFlow, ReserveFlow
 
 router = Router(name="client_router")
+referrals = ReferralService()
+settings = BotSettings()
 
 
 @router.message(Command("start"))
 async def start_handler(message: Message, state: FSMContext) -> None:
     await state.clear()
+    referral_payload = parse_start_referral(message.text)
+    referral_text = ""
+    if referral_payload and message.from_user:
+        registered = referrals.register_referral(message.from_user.id, referral_payload)
+        if registered:
+            referral_text = "\nРеферальний код застосовано. Ви отримали welcome бонус."
     await message.answer(
-        "Вітаю у SmartMenu.\nКоманди: /menu /profile /reserve /support /referral /help"
+        "Вітаю у SmartMenu.\n"
+        "Команди: /menu /profile /reserve /support /referral /help /pricing /buy"
+        + referral_text
     )
 
 
@@ -69,7 +82,42 @@ async def referral_handler(message: Message) -> None:
     if not user:
         await message.answer("Не вдалося згенерувати реферальне посилання.")
         return
-    await message.answer(f"Ваше реферальне посилання: https://t.me/SmartMenuBot?start=ref{user.id}")
+    stats = referrals.stats(user.id)
+    await message.answer(
+        f"Ваше реферальне посилання: https://t.me/SmartMenuBot?start=ref{user.id}\n"
+        f"Запрошено друзів: {stats.invitee_count}"
+    )
+
+
+@router.message(Command("pricing"))
+async def pricing_handler(message: Message) -> None:
+    await message.answer(list_products_text())
+
+
+@router.message(Command("buy"))
+async def buy_handler(message: Message, bot: Bot) -> None:
+    text = message.text or ""
+    parts = text.split(maxsplit=1)
+    if len(parts) < 2:
+        await message.answer("Формат: /buy <product_id>, приклад: /buy hoodie")
+        return
+    product = get_product(parts[1].strip())
+    if not product:
+        await message.answer("Товар не знайдено. Використай /pricing")
+        return
+    if not message.from_user:
+        await message.answer("Не вдалося визначити користувача для оплати.")
+        return
+    await bot.send_invoice(
+        chat_id=message.chat.id,
+        title=product.title,
+        description=product.description,
+        payload=f"order:{product.product_id}:{message.from_user.id}",
+        provider_token=settings.telegram_provider_token,
+        currency=product.currency,
+        prices=product_prices(product),
+        start_parameter=f"buy-{product.product_id}",
+    )
 
 
 @router.message(Command("cancel"))
@@ -214,3 +262,18 @@ async def order_payment_callback(callback: CallbackQuery, state: FSMContext) -> 
         f"- Оплата: {method}"
     )
     await callback.answer("Замовлення підтверджено")
+
+
+@router.pre_checkout_query()
+async def pre_checkout_handler(query: PreCheckoutQuery, bot: Bot) -> None:
+    await bot.answer_pre_checkout_query(pre_checkout_query_id=query.id, ok=True)
+
+
+@router.message(F.successful_payment)
+async def successful_payment_handler(message: Message) -> None:
+    payment = message.successful_payment
+    await message.answer(
+        "Оплату отримано ✅\n"
+        f"Сума: {payment.total_amount / 100:.2f} {payment.currency}\n"
+        f"Payload: {payment.invoice_payload}"
+    )

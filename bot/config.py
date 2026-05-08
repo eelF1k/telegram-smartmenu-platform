@@ -5,6 +5,7 @@ class BotSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     telegram_bot_token: str = "123456:TEST_TOKEN"
+    telegram_provider_token: str = "381764678:TEST:12345"
     bot_mode: str = "polling"
     webhook_secret: str = "dev-webhook-secret"
     redis_url: str = "redis://localhost:6379/0"
