@@ -66,7 +66,7 @@ class DeliveryPolicyEngine:
             return "email"
         return "telegram"
 
-    def _allow(self, channel: str, tenant_id: str) -> bool:
+    def _allow(self, channel: str, tenant_id: str, *, consume: bool) -> bool:
         now = time()
         cutoff = now - 60
         bucket_key = f"{tenant_id}:{channel}"
@@ -76,14 +76,15 @@ class DeliveryPolicyEngine:
         limit = self._tenant_rates.get(tenant_id, self._rate_limit_per_minute)
         if len(bucket) >= limit:
             return False
-        bucket.append(now)
+        if consume:
+            bucket.append(now)
         return True
 
-    def evaluate(self, job: QueueJob) -> DeliveryDecision:
+    def _evaluate(self, job: QueueJob, *, consume: bool) -> DeliveryDecision:
         tenant_id = str(job.payload.get("tenant_id", "default"))
         priority = self._resolve_priority(job)
         channel = self._resolve_channel(job, priority)
-        allowed = self._allow(channel, tenant_id=tenant_id)
+        allowed = self._allow(channel, tenant_id=tenant_id, consume=consume)
         reason = "ok" if allowed else "rate_limited"
         return DeliveryDecision(
             channel=channel,
@@ -91,3 +92,9 @@ class DeliveryPolicyEngine:
             allowed=allowed,
             reason=reason,
         )
+
+    def evaluate(self, job: QueueJob) -> DeliveryDecision:
+        return self._evaluate(job, consume=True)
+
+    def simulate(self, job: QueueJob) -> DeliveryDecision:
+        return self._evaluate(job, consume=False)

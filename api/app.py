@@ -18,6 +18,7 @@ from shared.delivery_policy import DeliveryPolicyEngine
 from shared.observability import export_metrics, new_trace_id
 from shared.outbox_store import outbox_store
 from shared.queue_factory import build_queue_store
+from shared.queue_jobs import QueueJob
 from shared.queue_processor import process_next_job
 from shared.tracing import setup_tracing
 
@@ -280,6 +281,35 @@ async def admin_upsert_policy_rule(payload: dict) -> dict:
             )
     await reload_policy_rules()
     return {"ok": True}
+
+
+@app.post("/admin/policy-simulate")
+async def admin_policy_simulate(payload: dict) -> dict:
+    kind = str(payload.get("kind", "")).strip()
+    if not kind:
+        raise HTTPException(status_code=400, detail="kind_required")
+    job = QueueJob(
+        job_id=0,
+        kind=kind,
+        payload=payload.get("payload", {}),
+        status="pending",
+        attempts=0,
+        max_attempts=1,
+        backoff_seconds=0,
+        available_at=0,
+        created_at="simulation",
+        updated_at="simulation",
+    )
+    decision = policy_engine.simulate(job)
+    return {
+        "ok": True,
+        "decision": {
+            "channel": decision.channel,
+            "priority": decision.priority,
+            "allowed": decision.allowed,
+            "reason": decision.reason,
+        },
+    }
 
 
 @app.post("/admin/orders/{order_id}/status")
