@@ -1,13 +1,14 @@
 from httpx import ASGITransport, AsyncClient
 
 from api.app import app, queue_store
-from shared.notification_outbox import notification_outbox
+from shared.outbox_store import outbox_store
 
 
 async def test_queue_enqueue_list_and_process() -> None:
     if hasattr(queue_store, "reset"):
         queue_store.reset()
-    notification_outbox.reset()
+    if hasattr(outbox_store, "reset"):
+        outbox_store.reset()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         enqueue_response = await client.post(
@@ -29,7 +30,8 @@ async def test_queue_enqueue_list_and_process() -> None:
 async def test_order_status_update_enqueues_notification_job() -> None:
     if hasattr(queue_store, "reset"):
         queue_store.reset()
-    notification_outbox.reset()
+    if hasattr(outbox_store, "reset"):
+        outbox_store.reset()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         await client.post("/webapp/confirm", json={"user_id": 7, "total": 15000})
@@ -50,7 +52,8 @@ async def test_order_status_update_enqueues_notification_job() -> None:
 async def test_queue_retry_and_dead_letter_flow() -> None:
     if hasattr(queue_store, "reset"):
         queue_store.reset()
-    notification_outbox.reset()
+    if hasattr(outbox_store, "reset"):
+        outbox_store.reset()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         enqueue_response = await client.post(
@@ -81,7 +84,8 @@ async def test_queue_retry_and_dead_letter_flow() -> None:
 async def test_notification_outbox_is_idempotent_on_duplicate_processing() -> None:
     if hasattr(queue_store, "reset"):
         queue_store.reset()
-    notification_outbox.reset()
+    if hasattr(outbox_store, "reset"):
+        outbox_store.reset()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         await client.post(

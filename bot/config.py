@@ -14,3 +14,4 @@ class BotSettings(BaseSettings):
     default_locale: str = "uk"
     queue_backend: str = "memory"
     queue_redis_prefix: str = "smartmenu:queue"
+    delivery_webhook_url: str = ""
