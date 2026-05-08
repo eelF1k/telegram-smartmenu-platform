@@ -15,9 +15,11 @@ from shared.observability import export_metrics, new_trace_id
 from shared.outbox_store import outbox_store
 from shared.queue_factory import build_queue_store
 from shared.queue_processor import process_next_job
+from shared.tracing import setup_tracing
 
 app = FastAPI(title="SmartMenu API", version="0.1.0")
 settings = BotSettings()
+setup_tracing("smartmenu-api")
 bot = create_bot(settings)
 dispatcher = create_dispatcher(settings)
 queue_store = build_queue_store(

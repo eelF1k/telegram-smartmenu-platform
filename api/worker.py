@@ -7,9 +7,11 @@ from shared.observability import new_trace_id
 from shared.outbox_store import outbox_store
 from shared.queue_factory import build_queue_store
 from shared.queue_processor import process_next_job
+from shared.tracing import setup_tracing
 
 logger = logging.getLogger(__name__)
 settings = BotSettings()
+setup_tracing("smartmenu-worker")
 queue_store = build_queue_store(
     settings.queue_backend,
     redis_url=settings.redis_url,
